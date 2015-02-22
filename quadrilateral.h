@@ -9,7 +9,9 @@ class Quadrilateral : public QWidget
 
     QVector<QPointF> m_points;
     int m_selected;
-    QPointF m_mapped;
+    QPointF m_mapped,m_point;
+    int m_iterations;
+    bool m_showAlgorithm;
 
 public:
     explicit Quadrilateral(QWidget *parent = 0);
@@ -21,8 +23,12 @@ public:
 
     void sort();
 
-    QPointF findMapped();
+    QPointF findMapped(QPainter *p=0);
     ~Quadrilateral();
+
+public slots:
+    void setIterations(int iter){m_iterations = iter;update();}
+    void showAlgorithm(bool show){m_showAlgorithm = show;update();}
 
 };
 

@@ -4,9 +4,15 @@
 #include <QMouseEvent>
 #include <math.h>
 
+#include <QSpinBox>
+#include <QCheckBox>
+#include <QVBoxLayout>
+
 Quadrilateral::Quadrilateral(QWidget *parent) :
     QWidget(parent)
 {
+    setAutoFillBackground(false);
+    setWindowTitle("Quadrilateral projection test");
     int i;
     for(i = 0;i < 4;i++)
     {
@@ -14,6 +20,27 @@ Quadrilateral::Quadrilateral(QWidget *parent) :
     }
 
     m_selected = -1;
+    m_point = QPointF(width()/2,height()/2);
+
+    // Settings dialog
+    QWidget *widg = new QWidget();
+    widg->setWindowTitle("Preferences");
+    QVBoxLayout *layout = new QVBoxLayout(widg);
+
+    QSpinBox *sb = new QSpinBox();
+    sb->setRange(1,100);
+    layout->addWidget(sb);
+    connect(sb,SIGNAL(valueChanged(int)),SLOT(setIterations(int)));
+    QCheckBox *cb = new QCheckBox("Show algorithm lines");
+    cb->setChecked(true);
+    layout->addWidget(cb);
+    connect(cb,SIGNAL(toggled(bool)),SLOT(showAlgorithm(bool)));
+
+    m_showAlgorithm = true;
+    m_iterations = 1;
+
+    widg->show();
+
 }
 
 void Quadrilateral::paintEvent(QPaintEvent *)
@@ -30,9 +57,10 @@ void Quadrilateral::paintEvent(QPaintEvent *)
     p.drawPolygon(m_points);
 
     p.setPen(Qt::red);
-    p.drawLine(width()/2,0,width()/2,height());
-    p.drawLine(0,height()/2,width(),height()/2);
-    m_mapped = findMapped();
+    p.drawLine(m_point.x(),0,m_point.x(),height());
+    p.drawLine(0,m_point.y(),width(),m_point.y());
+    p.setPen(QColor(0,0,0,128));
+    m_mapped = findMapped(m_showAlgorithm?&p:0);
     p.setPen(Qt::green);
     p.drawLine(width()*m_mapped.x(),0,width()*m_mapped.x(),height());
     p.drawLine(0,height()*m_mapped.y(),width(),height()*m_mapped.y());
@@ -48,6 +76,10 @@ void Quadrilateral::mousePressEvent(QMouseEvent *ev)
             m_selected = i;
     }
 
+    if(m_selected == -1)
+    {
+        m_point = ev->pos();
+    }
 }
 void Quadrilateral::mouseReleaseEvent(QMouseEvent *ev)
 {
@@ -60,6 +92,10 @@ void Quadrilateral::mouseMoveEvent(QMouseEvent *ev)
     if(m_selected >=0)
     {
         m_points[m_selected] = ev->pos();
+    }
+    if(m_selected == -1)
+    {
+        m_point = ev->pos();
     }
     update();
 }
@@ -111,9 +147,9 @@ QPointF ratioPoint(const QPointF &a, const QPointF &b, qreal ratio)
     return QPointF(a.x()*(1.0-ratio)+b.x()*(0.0+ratio),a.y()*(1.0-ratio)+b.y()*(0.0+ratio));
 }
 
-QPointF Quadrilateral::findMapped()
+QPointF Quadrilateral::findMapped(QPainter *p)
 {
-    QPointF point(width()/2.0,height()/2.0);
+    QPointF point = m_point;
 
     QPointF t1, t2;
     qreal step = 1.0/2.0;
@@ -121,12 +157,14 @@ QPointF Quadrilateral::findMapped()
 
     QPointF result;
 
-    while(step > 1/1024)
+    int i;
+    for(i=0;i<m_iterations;i++)
     {
         t1 = ratioPoint(m_points[0],m_points[1],ratio);
         t2 = ratioPoint(m_points[3],m_points[2],ratio);
         step /= 2.0;
         ratio -= step*sgn((t2.x()-t1.x())*(point.y()-t1.y())-(t2.y() - t1.y())*(point.x()-t1.x()));
+        if(p)p->drawLine(t1,t2);
     }
 
     result.setX(ratio);
@@ -134,12 +172,13 @@ QPointF Quadrilateral::findMapped()
     ratio = 1.0/2.0;
     step  = 1.0/2.0;
 
-    while(step > 1/1024)
+    for(i=0;i<m_iterations;i++)
     {
         t1 = ratioPoint(m_points[0],m_points[3],ratio);
         t2 = ratioPoint(m_points[1],m_points[2],ratio);
         step /= 2.0;
         ratio += step*sgn((t2.x()-t1.x())*(point.y()-t1.y())-(t2.y() - t1.y())*(point.x()-t1.x()));
+        if(p)p->drawLine(t1,t2);
     }
     result.setY(ratio);
 
